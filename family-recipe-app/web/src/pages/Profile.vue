@@ -51,6 +51,11 @@
     <!-- 菜单组3 -->
     <div class="list-group-title">其他</div>
     <div class="list-group">
+      <div class="list-row" @click="onResetDemo">
+        <div class="row-icon" style="background:#FFF4E5;color:var(--orange)">🔄</div>
+        <span style="flex:1">重置演示数据</span>
+        <svg viewBox="0 0 12 12" fill="none" style="width:12px;height:12px;color:var(--gray3)"><path d="M4 2L8 6L4 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </div>
       <div class="list-row" @click="showAbout = true">
         <div class="row-icon" style="background:#F4ECFF;color:var(--purple)">ℹ️</div>
         <span style="flex:1">关于</span>
@@ -88,10 +93,20 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user'
+import * as api from '../utils/api'
 
 const router = useRouter()
 const userStore = useUserStore()
 const showAbout = ref(false)
+
+function onResetDemo() {
+  if (!confirm('确定重置演示数据吗？这将清空当前所有数据并重新初始化演示数据。')) return
+  localStorage.removeItem('family_recipe_data')
+  api.initDemoData()
+  alert('演示数据已重置，请重新登录')
+  userStore.logout()
+  router.push('/login')
+}
 
 function onLogout() {
   if (!confirm('确定退出登录吗？')) return

@@ -40,7 +40,7 @@
         <!-- 列表 -->
         <div v-for="(r, i) in recipes" :key="r.id" class="rank-item" @click="$router.push(`/recipe/${r.id}`)">
           <div class="rank-num" :class="rankClass(i)">{{ i + 1 }}</div>
-          <img v-if="r.cover" :src="fileUrl(r.cover)" class="rank-thumb" />
+          <img v-if="r.cover" :src="r.cover" class="rank-thumb" />
           <div v-else class="rank-thumb-placeholder">{{ r.title[0] }}</div>
           <div style="flex:1;min-width:0">
             <div class="font-semibold" style="font-size:16px">{{ r.title }}</div>
@@ -77,7 +77,7 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue'
 import { useUserStore } from '../stores/user'
-import { request, fileUrl } from '../utils/request'
+import * as api from '../utils/api'
 
 const userStore = useUserStore()
 const tab = ref('recipes')
@@ -88,14 +88,15 @@ function rankClass(i) {
   return i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : ''
 }
 
-async function load() {
-  const fid = userStore.currentFamily?.id || ''
+function load() {
+  const fid = userStore.currentFamily?.id
+  if (!fid) return
   try {
     if (tab.value === 'recipes') {
-      const data = await request(`/api/rankings/recipes?family_id=${fid}`)
+      const data = api.getRecipeRanking(fid)
       recipes.value = data.recipes
     } else {
-      const data = await request(`/api/rankings/chefs?family_id=${fid}`)
+      const data = api.getChefRanking(fid)
       chefs.value = data.chefs
     }
   } catch (e) {}
@@ -103,6 +104,7 @@ async function load() {
 
 onMounted(load)
 watch(tab, load)
+watch(() => userStore.currentFamily?.id, load)
 </script>
 
 <style scoped>

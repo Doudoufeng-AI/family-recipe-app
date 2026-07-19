@@ -14,12 +14,10 @@ export const useUserStore = defineStore('user', () => {
     localStorage.setItem('token', t)
     localStorage.setItem('user', JSON.stringify(u))
   }
-
   function setFamily(f) {
     currentFamily.value = f
     localStorage.setItem('currentFamily', JSON.stringify(f))
   }
-
   function logout() {
     token.value = ''
     user.value = null
@@ -28,6 +26,5 @@ export const useUserStore = defineStore('user', () => {
     localStorage.removeItem('user')
     localStorage.removeItem('currentFamily')
   }
-
   return { token, user, currentFamily, isLogged, setAuth, setFamily, logout }
 })

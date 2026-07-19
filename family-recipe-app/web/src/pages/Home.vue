@@ -30,7 +30,7 @@
       </div>
       <div v-else>
         <div v-for="r in recipes" :key="r.id" class="list-item" @click="$router.push(`/recipe/${r.id}`)">
-          <img v-if="r.cover" :src="fileUrl(r.cover)" class="list-thumb" />
+          <img v-if="r.cover" :src="r.cover" class="list-thumb" />
           <div v-else class="list-thumb-placeholder">{{ r.title[0] }}</div>
           <div class="list-content">
             <div>
@@ -61,7 +61,7 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue'
 import { useUserStore } from '../stores/user'
-import { request, fileUrl } from '../utils/request'
+import * as api from '../utils/api'
 
 const userStore = useUserStore()
 const recipes = ref([])
@@ -69,15 +69,12 @@ const loading = ref(false)
 const cat = ref('全部')
 const categories = ['全部', '早餐', '午餐', '晚餐', '汤品', '凉菜', '主食', '小吃', '甜品']
 
-async function loadRecipes() {
+function loadRecipes() {
   loading.value = true
   try {
-    const fid = userStore.currentFamily?.id || ''
-    const params = new URLSearchParams()
-    if (fid) params.set('family_id', fid)
-    if (cat.value !== '全部') params.set('category', cat.value)
-    const data = await request(`/api/recipes?${params}`)
-    recipes.value = data.recipes
+    const fid = userStore.currentFamily?.id
+    if (!fid) { recipes.value = []; return }
+    recipes.value = api.getRecipes(fid, null, cat.value)
   } catch (e) {
     console.error(e)
   } finally {

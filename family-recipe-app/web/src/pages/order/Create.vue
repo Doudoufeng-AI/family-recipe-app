@@ -14,7 +14,7 @@
       </div>
       <div v-else class="list-group">
         <div v-for="r in recipes" :key="r.id" class="list-row" :class="{selected: form.recipe_id === r.id}" @click="form.recipe_id = r.id">
-          <img v-if="r.cover" :src="fileUrl(r.cover)" class="pick-thumb" />
+          <img v-if="r.cover" :src="r.cover" class="pick-thumb" />
           <div v-else class="pick-thumb-placeholder">{{ r.title[0] }}</div>
           <div style="flex:1">
             <div class="font-medium">{{ r.title }}</div>
@@ -45,7 +45,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '../../stores/user'
-import { request, fileUrl } from '../../utils/request'
+import * as api from '../../utils/api'
 
 const route = useRoute()
 const router = useRouter()
@@ -55,20 +55,19 @@ const loading = ref(false)
 const loading2 = ref(false)
 const form = reactive({ recipe_id: route.query.recipe_id ? parseInt(route.query.recipe_id) : null, meal_date: '', note: '' })
 
-async function loadRecipes() {
+function loadRecipes() {
   if (!userStore.currentFamily) return
   loading.value = true
   try {
-    const data = await request(`/api/recipes?family_id=${userStore.currentFamily.id}`)
-    recipes.value = data.recipes
+    recipes.value = api.getRecipes(userStore.currentFamily.id, null, null)
   } catch (e) {} finally { loading.value = false }
 }
 
-async function submit() {
+function submit() {
   if (!form.recipe_id) { alert('请选择菜品'); return }
   loading2.value = true
   try {
-    await request('/api/orders', { method: 'POST', body: { ...form, family_id: userStore.currentFamily.id } })
+    api.createOrder(userStore.user.id, userStore.currentFamily.id, form.recipe_id, form.meal_date, form.note)
     router.push('/order')
   } catch (e) { alert(e.message) } finally { loading2.value = false }
 }

@@ -2,7 +2,7 @@
   <div class="page" v-if="recipe">
     <!-- 成品图轮播 -->
     <div class="gallery" v-if="images.length">
-      <img v-for="(img, i) in images" :key="i" :src="fileUrl(img.image_path)" v-show="i === curImg" class="gallery-img" />
+      <img v-for="(img, i) in images" :key="i" :src="img" v-show="i === curImg" class="gallery-img" />
       <div class="gallery-dots" v-if="images.length > 1">
         <span v-for="(img, i) in images" :key="i" :class="{dot: true, active: i === curImg}" @click="curImg = i"></span>
       </div>
@@ -47,9 +47,9 @@
     </div>
 
     <!-- 视频 -->
-    <div v-if="recipe.video_path" class="card">
+    <div v-if="recipe.video" class="card">
       <div class="section-title">做法视频</div>
-      <video :src="fileUrl(recipe.video_path)" controls class="video mt-8"></video>
+      <video :src="recipe.video" controls class="video mt-8"></video>
     </div>
 
     <!-- 食材 -->
@@ -59,7 +59,7 @@
         <span class="text-gray text-sm">¥{{ ingCost('ingredient').toFixed(2) }}</span>
       </div>
       <div class="card" style="padding:0;overflow:hidden">
-        <img v-if="ingredients.find(i => i.type === 'ingredient' && i.group_image_path)" :src="fileUrl(ingredients.find(i => i.type === 'ingredient').group_image_path)" class="group-img" />
+        <img v-if="ingredients.find(i => i.type === 'ingredient' && i.group_image)" :src="ingredients.find(i => i.type === 'ingredient').group_image" class="group-img" />
         <div class="ing-list">
           <div v-for="ing in ingredients.filter(i => i.type === 'ingredient')" :key="ing.id" class="ing-row">
             <span class="ing-name">{{ ing.name }}</span>
@@ -77,7 +77,7 @@
         <span class="text-gray text-sm">¥{{ ingCost('seasoning').toFixed(2) }}</span>
       </div>
       <div class="card" style="padding:0;overflow:hidden">
-        <img v-if="ingredients.find(i => i.type === 'seasoning' && i.group_image_path)" :src="fileUrl(ingredients.find(i => i.type === 'seasoning').group_image_path)" class="group-img" />
+        <img v-if="ingredients.find(i => i.type === 'seasoning' && i.group_image)" :src="ingredients.find(i => i.type === 'seasoning').group_image" class="group-img" />
         <div class="ing-list">
           <div v-for="ing in ingredients.filter(i => i.type === 'seasoning')" :key="ing.id" class="ing-row">
             <span class="ing-name">{{ ing.name }}</span>
@@ -97,7 +97,7 @@
             <span class="step-num">{{ i + 1 }}</span>
             <span class="text-gray text-sm" v-if="st.duration">⏱ {{ st.duration }}分钟</span>
           </div>
-          <img v-if="st.image_path" :src="fileUrl(st.image_path)" class="step-img mt-8" />
+          <img v-if="st.image" :src="st.image" class="step-img mt-8" />
           <p class="step-desc">{{ st.description }}</p>
         </div>
       </div>
@@ -159,7 +159,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '../../stores/user'
-import { request, fileUrl } from '../../utils/request'
+import * as api from '../../utils/api'
 
 const route = useRoute()
 const router = useRouter()
@@ -182,39 +182,39 @@ function ingCost(type) {
   return ingredients.value.filter(i => i.type === type).reduce((s, i) => s + (i.cost || 0), 0)
 }
 
-async function load() {
+function load() {
   try {
-    const data = await request(`/api/recipes/${route.params.id}`)
-    recipe.value = data.recipe
-    images.value = data.images
-    ingredients.value = data.ingredients
-    steps.value = data.steps
-    const rt = await request(`/api/ratings?recipe_id=${route.params.id}`)
+    const r = api.getRecipe(parseInt(route.params.id))
+    recipe.value = r
+    images.value = r.images || []
+    ingredients.value = r.ingredients || []
+    steps.value = r.steps || []
+    const rt = api.getRatings(parseInt(route.params.id), userStore.user.id)
     ratings.value = rt.ratings
     isChef.value = rt.is_chef
   } catch (e) { console.error(e) }
 }
 
-async function submitRating() {
+function submitRating() {
   try {
-    await request('/api/ratings', { method: 'POST', body: { recipe_id: parseInt(route.params.id), ...rateForm } })
+    api.createRating(userStore.user.id, parseInt(route.params.id), rateForm.score, rateForm.comment)
     showRateModal.value = false
     rateForm.comment = ''
-    await load()
+    load()
   } catch (e) { alert(e.message) }
 }
 
-async function toggleVisible(r) {
+function toggleVisible(r) {
   try {
-    await request(`/api/ratings/${r.id}`, { method: 'PUT', body: { visible: !r.visible } })
-    await load()
+    api.toggleRatingVisible(r.id, userStore.user.id)
+    load()
   } catch (e) { alert(e.message) }
 }
 
-async function onDelete() {
+function onDelete() {
   if (!confirm('确定删除这个菜谱吗？')) return
   try {
-    await request(`/api/recipes/${route.params.id}`, { method: 'DELETE' })
+    api.deleteRecipe(parseInt(route.params.id), userStore.user.id)
     router.push('/')
   } catch (e) { alert(e.message) }
 }

@@ -18,7 +18,7 @@
         <p>没有找到相关菜谱</p>
       </div>
       <div v-for="r in recipes" :key="r.id" class="list-item" @click="$router.push(`/recipe/${r.id}`)">
-        <img v-if="r.cover" :src="fileUrl(r.cover)" class="list-thumb" />
+        <img v-if="r.cover" :src="r.cover" class="list-thumb" />
         <div v-else class="list-thumb-placeholder">{{ r.title[0] }}</div>
         <div class="list-content">
           <div>
@@ -40,19 +40,19 @@
 <script setup>
 import { ref } from 'vue'
 import { useUserStore } from '../stores/user'
-import { request, fileUrl } from '../utils/request'
+import * as api from '../utils/api'
 
 const userStore = useUserStore()
 const keyword = ref('')
 const recipes = ref([])
 const searched = ref(false)
 
-async function search() {
+function search() {
   if (!keyword.value.trim()) return
   try {
-    const fid = userStore.currentFamily?.id || ''
-    const data = await request(`/api/recipes?keyword=${encodeURIComponent(keyword.value)}&family_id=${fid}`)
-    recipes.value = data.recipes
+    const fid = userStore.currentFamily?.id
+    if (!fid) return
+    recipes.value = api.getRecipes(fid, keyword.value, null)
     searched.value = true
   } catch (e) { console.error(e) }
 }

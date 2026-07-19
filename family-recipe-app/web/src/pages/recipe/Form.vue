@@ -35,7 +35,7 @@
       <div class="card">
         <div class="flex gap-8" style="flex-wrap:wrap">
           <div v-for="(img, i) in form.images" :key="i" class="img-cell" @click="removeImage(i)">
-            <img :src="img.preview" />
+            <img :src="img" />
             <span class="remove-badge">×</span>
           </div>
           <label class="upload-box" v-if="form.images.length < 9">
@@ -50,7 +50,7 @@
       <div class="card">
         <div class="flex gap-8">
           <div v-if="form.video" class="video-cell" @click="form.video = null">
-            <video :src="form.video.preview"></video>
+            <video :src="form.video"></video>
             <span class="remove-badge">×</span>
           </div>
           <label class="upload-box" v-if="!form.video">
@@ -69,7 +69,7 @@
         <div class="label">食材合照 <span class="text-gray text-sm">选填</span></div>
         <div class="flex gap-8 mt-8 mb-12">
           <div v-if="form.ingredientImage" class="img-cell" @click="form.ingredientImage = null">
-            <img :src="form.ingredientImage.preview" />
+            <img :src="form.ingredientImage" />
             <span class="remove-badge">×</span>
           </div>
           <label class="upload-box" v-if="!form.ingredientImage">
@@ -100,7 +100,7 @@
         <div class="label">调料合照 <span class="text-gray text-sm">选填</span></div>
         <div class="flex gap-8 mt-8 mb-12">
           <div v-if="form.seasoningImage" class="img-cell" @click="form.seasoningImage = null">
-            <img :src="form.seasoningImage.preview" />
+            <img :src="form.seasoningImage" />
             <span class="remove-badge">×</span>
           </div>
           <label class="upload-box" v-if="!form.seasoningImage">
@@ -139,7 +139,7 @@
             <svg viewBox="0 0 28 28" fill="none" style="width:20px;height:20px"><path d="M14 5V23M5 14H23" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
           </label>
           <div v-else class="img-cell sm" @click="st.image = null">
-            <img :src="st.image.preview" />
+            <img :src="st.image" />
             <span class="remove-badge">×</span>
           </div>
           <div class="flex gap-4" style="align-items:center">
@@ -169,7 +169,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '../../stores/user'
-import { request, fileUrl } from '../../utils/request'
+import * as api from '../../utils/api'
 
 const props = defineProps({ recipeId: { type: [String, Number], default: null } })
 const emit = defineEmits(['saved'])
@@ -190,11 +190,10 @@ const totalCost = computed(() => form.ingredients.reduce((s, i) => s + (parseFlo
 const totalTime = computed(() => form.steps.reduce((s, st) => s + (parseInt(st.duration) || 0), 0))
 
 function ingList(type) { return form.ingredients.filter(x => x.type === type) }
-function filePreview(file) { return URL.createObjectURL(file) }
-function onImages(e) { Array.from(e.target.files).forEach(f => form.images.push({ file: f, preview: filePreview(f) })) }
-function onVideo(e) { if (e.target.files[0]) form.video = { file: e.target.files[0], preview: filePreview(e.target.files[0]) } }
-function onGroupImg(e, type) { if (e.target.files[0]) form[type === 'ingredient' ? 'ingredientImage' : 'seasoningImage'] = { file: e.target.files[0], preview: filePreview(e.target.files[0]) } }
-function onStepImg(e, i) { if (e.target.files[0]) form.steps[i].image = { file: e.target.files[0], preview: filePreview(e.target.files[0]) } }
+function onImages(e) { Array.from(e.target.files).forEach(f => form.images.push(URL.createObjectURL(f))) }
+function onVideo(e) { if (e.target.files[0]) form.video = URL.createObjectURL(e.target.files[0]) }
+function onGroupImg(e, type) { if (e.target.files[0]) form[type === 'ingredient' ? 'ingredientImage' : 'seasoningImage'] = URL.createObjectURL(e.target.files[0]) }
+function onStepImg(e, i) { if (e.target.files[0]) form.steps[i].image = URL.createObjectURL(e.target.files[0]) }
 function removeImage(i) { form.images.splice(i, 1) }
 function addIng(type) { form.ingredients.push({ type, name: '', amount: '', unit: '', price: 0, cost: 0 }) }
 function removeIng(type, idx) {
@@ -204,44 +203,45 @@ function removeIng(type, idx) {
 }
 function addStep() { form.steps.push({ description: '', duration: 0, image: null }) }
 
-async function loadRecipe() {
+function loadRecipe() {
   if (!props.recipeId) return
   loadingData.value = true
   try {
-    const data = await request(`/api/recipes/${props.recipeId}`)
-    const r = data.recipe
+    const r = api.getRecipe(parseInt(props.recipeId))
     form.title = r.title; form.category = r.category; form.description = r.description
-    form.images = data.images.map(img => ({ preview: fileUrl(img.image_path), path: img.image_path }))
-    if (r.video_path) form.video = { preview: fileUrl(r.video_path), path: r.video_path }
-    const ingImg = data.ingredients.find(i => i.type === 'ingredient' && i.group_image_path)
-    if (ingImg) form.ingredientImage = { preview: fileUrl(ingImg.group_image_path), path: ingImg.group_image_path }
-    const seaImg = data.ingredients.find(i => i.type === 'seasoning' && i.group_image_path)
-    if (seaImg) form.seasoningImage = { preview: fileUrl(seaImg.group_image_path), path: seaImg.group_image_path }
-    form.ingredients = data.ingredients.map(i => ({ type: i.type, name: i.name, amount: i.amount, unit: i.unit, price: i.price, cost: i.cost, group_image_path: i.group_image_path }))
-    form.steps = data.steps.map(s => ({ description: s.description, duration: s.duration, image: s.image_path ? { preview: fileUrl(s.image_path), path: s.image_path } : null }))
+    form.images = r.images || []
+    form.video = r.video || null
+    const ingImg = (r.ingredients || []).find(i => i.type === 'ingredient' && i.group_image)
+    if (ingImg) form.ingredientImage = ingImg.group_image
+    const seaImg = (r.ingredients || []).find(i => i.type === 'seasoning' && i.group_image)
+    if (seaImg) form.seasoningImage = seaImg.group_image
+    form.ingredients = (r.ingredients || []).map(i => ({ type: i.type, name: i.name, amount: i.amount, unit: i.unit, price: i.price, cost: i.cost, group_image: i.group_image || null }))
+    form.steps = (r.steps || []).map(s => ({ description: s.description, duration: s.duration, image: s.image || null }))
   } catch (e) { alert(e.message) } finally { loadingData.value = false }
 }
 
-async function submit() {
+function submit() {
   if (!form.title) { alert('请填写菜名'); return }
   if (!userStore.currentFamily) { alert('请先创建或加入一个家庭'); router.push('/family'); return }
   loading.value = true
   try {
-    const fd = new FormData()
-    fd.append('family_id', userStore.currentFamily.id)
-    fd.append('title', form.title); fd.append('category', form.category); fd.append('description', form.description)
-    fd.append('ingredients', JSON.stringify(form.ingredients.map(i => ({ ...i, cost: i.cost || 0, price: i.price || 0 }))))
-    fd.append('steps', JSON.stringify(form.steps.map(s => ({ description: s.description, duration: s.duration || 0, image_path: s.image?.path || null }))))
-    form.images.forEach(img => { if (img.file) fd.append('images', img.file) })
-    if (form.video?.file) fd.append('video', form.video.file)
-    if (form.ingredientImage?.file) fd.append('ingredient_image', form.ingredientImage.file)
-    if (form.seasoningImage?.file) fd.append('seasoning_image', form.seasoningImage.file)
-    form.steps.forEach(s => { if (s.image?.file) fd.append('step_images', s.image.file) })
-    const url = isEdit.value ? `/api/recipes/${props.recipeId}` : '/api/recipes'
-    const method = isEdit.value ? 'PUT' : 'POST'
-    const data = await request(url, { method, body: fd })
+    const recipeData = {
+      title: form.title,
+      category: form.category,
+      description: form.description,
+      images: form.images,
+      video: form.video,
+      ingredients: form.ingredients.map(i => ({ ...i, cost: i.cost || 0, price: i.price || 0 })),
+      steps: form.steps.map(s => ({ description: s.description, duration: s.duration || 0, image: s.image || null }))
+    }
+    let data
+    if (isEdit.value) {
+      data = api.updateRecipe(parseInt(props.recipeId), userStore.user.id, recipeData)
+    } else {
+      data = api.createRecipe(userStore.user.id, userStore.currentFamily.id, recipeData)
+    }
     emit('saved', data)
-    router.push(`/recipe/${isEdit.value ? props.recipeId : data.id}`)
+    router.push(`/recipe/${data.id}`)
   } catch (e) { alert(e.message) } finally { loading.value = false }
 }
 

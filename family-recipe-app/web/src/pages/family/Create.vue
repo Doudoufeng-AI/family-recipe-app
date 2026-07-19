@@ -26,7 +26,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '../../stores/user'
-import { request } from '../../utils/request'
+import * as api from '../../utils/api'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -37,8 +37,8 @@ async function submit() {
   if (!name.value) { alert('请输入家庭名称'); return }
   loading.value = true
   try {
-    const data = await request('/api/families', { method: 'POST', body: { name: name.value } })
-    userStore.setFamily(data.family)
+    const family = api.createFamily(userStore.user.id, name.value)
+    userStore.setFamily(family)
     router.push('/family')
   } catch (e) { alert(e.message) } finally { loading.value = false }
 }

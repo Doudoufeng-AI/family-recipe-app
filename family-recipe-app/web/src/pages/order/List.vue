@@ -22,7 +22,7 @@
       <div v-else>
         <div v-for="o in orders" :key="o.id" class="order-card">
           <div class="flex gap-12">
-            <img v-if="o.cover" :src="fileUrl(o.cover)" class="order-thumb" />
+            <img v-if="o.cover" :src="o.cover" class="order-thumb" />
             <div v-else class="order-thumb-placeholder">{{ o.recipe_title[0] }}</div>
             <div style="flex:1;min-width:0">
               <div class="font-bold" style="font-size:17px">{{ o.recipe_title }}</div>
@@ -45,9 +45,9 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useUserStore } from '../../stores/user'
-import { request, fileUrl } from '../../utils/request'
+import * as api from '../../utils/api'
 
 const userStore = useUserStore()
 const orders = ref([])
@@ -59,28 +59,27 @@ const statuses = [
 ]
 const statusMap = { pending: '待确认', confirmed: '已确认', cooking: '制作中', done: '已完成', rejected: '已拒绝' }
 
-async function load() {
+function load() {
   if (!userStore.currentFamily) return
   loading.value = true
   try {
-    const params = new URLSearchParams({ family_id: userStore.currentFamily.id })
-    if (curStatus.value) params.set('status', curStatus.value)
-    const data = await request(`/api/orders?${params}`)
-    orders.value = data.orders
-    const fam = await request(`/api/families/${userStore.currentFamily.id}/members`)
-    const me = fam.members.find(m => m.id === userStore.user?.id)
-    isChef.value = me?.role === 'chef'
+    const data = api.getOrders(userStore.currentFamily.id, userStore.user.id)
+    let allOrders = data.orders
+    if (curStatus.value) allOrders = allOrders.filter(o => o.status === curStatus.value)
+    orders.value = allOrders
+    isChef.value = data.is_chef
   } catch (e) {} finally { loading.value = false }
 }
 
-async function updateStatus(o, status) {
+function updateStatus(o, status) {
   try {
-    await request(`/api/orders/${o.id}`, { method: 'PUT', body: { status } })
-    await load()
+    api.updateOrderStatus(o.id, status)
+    load()
   } catch (e) { alert(e.message) }
 }
 
 onMounted(load)
+watch(() => userStore.currentFamily?.id, load)
 </script>
 
 <style scoped>

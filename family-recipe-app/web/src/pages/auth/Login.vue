@@ -35,7 +35,7 @@
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '../../stores/user'
-import { request } from '../../utils/request'
+import * as api from '../../utils/api'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -47,8 +47,8 @@ async function onLogin() {
   if (!form.username || !form.password) { error.value = '请填写用户名和密码'; return }
   loading.value = true; error.value = ''
   try {
-    const data = await request('/api/auth/login', { method: 'POST', body: form })
-    userStore.setAuth(data.token, data.user)
+    const data = api.login(form.username, form.password)
+    userStore.setAuth('local_' + data.id, data)
     router.push('/')
   } catch (e) {
     error.value = e.message
