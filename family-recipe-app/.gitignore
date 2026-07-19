@@ -1,0 +1,12 @@
+node_modules/
+dist/
+web-dist/
+data/
+uploads/
+*.db
+*.db-shm
+*.db-wal
+.DS_Store
+npm-debug.log
+yarn-error.log
+*.log

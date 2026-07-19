@@ -1,0 +1,11 @@
+{
+  "name": "family-recipe-app",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "setup": "cd server && npm install && cd ../web && npm install",
+    "build": "cd web && npm run build && cp -r dist ../server/web-dist",
+    "start": "cd server && npm start",
+    "dev": "cd server && npm run dev"
+  }
+}
