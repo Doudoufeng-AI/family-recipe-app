@@ -316,6 +316,47 @@ export function getRecipeRanking(familyId) {
   return { recipes: recipes }
 }
 
+// 获取今日点餐（按日期过滤）
+export function getTodayOrders(familyId, dateStr) {
+  const data = load()
+  const today = dateStr || new Date().toISOString().slice(0, 10)
+  let orders = (data.orders || []).filter(o => o.family_id === familyId && o.meal_date === today)
+  return orders.map(o => {
+    const recipe = (data.recipes || []).find(r => r.id === o.recipe_id)
+    const user = getUser(o.user_id)
+    return {
+      ...o,
+      recipe_title: recipe?.title || '未知',
+      category: recipe?.category || '',
+      cover: recipe?.images?.[0] || null,
+      cover_color: recipe?.title ? stringToColor(recipe.title) : '#007AFF',
+      orderer_name: user?.nickname || '未知',
+      total_cost: recipe?.total_cost || 0,
+      total_time: recipe?.total_time || 0
+    }
+  })
+}
+
+// 字符串转颜色（用于无图菜谱的占位背景）
+function stringToColor(str) {
+  const colors = ['#FF6B6B', '#4ECDC4', '#FFD93D', '#6BCB77', '#4D96FF', '#FF8FAB', '#9B59B6', '#3498DB']
+  let hash = 0
+  for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash)
+  return colors[Math.abs(hash) % colors.length]
+}
+
+// 获取所有家庭（用于首页切换查看其他家庭今日点餐）
+export function getAllMyFamilies(userId) {
+  return getMyFamilies(userId)
+}
+
+// 获取用户在家庭中的角色
+export function getUserRole(familyId, userId) {
+  const data = load()
+  const member = (data.familyMembers || []).find(m => m.family_id === familyId && m.user_id === userId)
+  return member?.role || 'member'
+}
+
 // 导入演示数据
 export function initDemoData() {
   const data = load()

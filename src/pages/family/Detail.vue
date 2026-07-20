@@ -25,7 +25,10 @@
       <div class="section-header"><span class="section-title">家庭成员</span><span class="text-gray text-sm">{{ members.length }}人</span></div>
       <div class="list-group">
         <div v-for="m in members" :key="m.id" class="list-row">
-          <div class="member-avatar" :class="{chef: m.role === 'chef'}">{{ m.nickname[0] }}</div>
+          <div class="avatar-wrap">
+            <div class="member-avatar" :class="{chef: m.role === 'chef'}">{{ m.nickname[0] }}</div>
+            <div v-if="m.role === 'chef'" class="chef-hat-badge">👑</div>
+          </div>
           <div style="flex:1">
             <div class="font-medium">{{ m.nickname }}</div>
             <div class="text-gray text-sm">@{{ m.username }}</div>
@@ -88,6 +91,8 @@ onMounted(load)
 .member-avatar { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #8E8E93, #AEAEB2); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 17px; font-weight: 600; flex-shrink: 0; }
 .member-avatar.chef { background: linear-gradient(135deg, #FF9500, #FF6B00); }
 .chef-badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 8px; font-size: 12px; font-weight: 600; background: #FFF4E5; color: var(--orange); margin-right: 8px; }
+.avatar-wrap { position: relative; }
+.chef-hat-badge { position: absolute; top: -10px; right: -8px; font-size: 18px; }
 .section-header { display: flex; justify-content: space-between; align-items: center; padding: 20px 4px 8px; }
 .section-title { font-size: 22px; font-weight: 700; letter-spacing: -.3px; }
 </style>

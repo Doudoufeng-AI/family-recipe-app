@@ -47,6 +47,9 @@ body {
   margin: 0 auto;
   min-height: 100vh;
   background: var(--bg);
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(255,200,150,.08) 0%, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(255,180,200,.06) 0%, transparent 50%);
   position: relative;
 }
 

@@ -1,0 +1,1 @@
+import{m as a,f as c,N as n,D as p,s as u}from"./index-5QSPaZ4O.js";import{R as i}from"./Form-DbOc_8Gm.js";import"./_plugin-vue_export-helper-DlAUqK2U.js";const R={__name:"Edit",setup(m){const o=n(),r=p(),t=a(o.params.id);function s(e){r.push(`/recipe/${e.id}`)}return(e,d)=>(u(),c(i,{recipeId:t.value,onSaved:s},null,8,["recipeId"]))}};export{R as default};

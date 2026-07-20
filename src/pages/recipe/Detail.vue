@@ -36,10 +36,13 @@
       </div>
       <div class="author-row mt-12">
         <div class="flex gap-8" style="align-items:center">
-          <div class="avatar">{{ recipe.author_name[0] }}</div>
+          <div class="avatar-wrap">
+            <div class="avatar">{{ recipe.author_name[0] }}</div>
+            <div v-if="authorIsChef" class="chef-hat">👑</div>
+          </div>
           <div>
             <div class="text-sm font-medium">{{ recipe.author_name }}</div>
-            <div class="text-gray text-sm">厨师</div>
+            <div class="text-gray text-sm">{{ authorIsChef ? '主厨' : '厨师' }}</div>
           </div>
         </div>
       </div>
@@ -177,6 +180,10 @@ const rateForm = reactive({ score: 5, comment: '' })
 
 const canEdit = computed(() => recipe.value?.author_id === userStore.user?.id)
 const canRate = computed(() => recipe.value && recipe.value.author_id !== userStore.user?.id)
+const authorIsChef = computed(() => {
+  if (!recipe.value) return false
+  return api.getUserRole(recipe.value.family_id, recipe.value.author_id) === 'chef'
+})
 
 function ingCost(type) {
   return ingredients.value.filter(i => i.type === type).reduce((s, i) => s + (i.cost || 0), 0)
@@ -243,6 +250,8 @@ onMounted(load)
 .author-row { border-top: .5px solid var(--separator); padding-top: 12px; }
 .avatar { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #007AFF, #5856D6); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 17px; font-weight: 600; }
 .avatar.sm { width: 32px; height: 32px; font-size: 14px; }
+.avatar-wrap { position: relative; }
+.chef-hat { position: absolute; top: -8px; right: -8px; font-size: 16px; }
 .desc { color: var(--text2); font-size: 15px; line-height: 1.6; }
 
 .section-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 4px 8px; }
