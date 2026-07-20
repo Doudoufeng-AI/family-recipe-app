@@ -1,0 +1,8 @@
+{
+  "buildCommand": "cd family-recipe-app/web && npm install && npm run build",
+  "outputDirectory": "family-recipe-app/web/dist",
+  "framework": null,
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/" }
+  ]
+}
