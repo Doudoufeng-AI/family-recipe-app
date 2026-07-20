@@ -1,1 +1,0 @@
-import{f as t,D as a,s}from"./index-5QSPaZ4O.js";import{R as c}from"./Form-DbOc_8Gm.js";import"./_plugin-vue_export-helper-DlAUqK2U.js";const _={__name:"Create",setup(n){const o=a();function r(e){o.push(`/recipe/${e.id}`)}return(e,p)=>(s(),t(c,{onSaved:r}))}};export{_ as default};
