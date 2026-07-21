@@ -36,8 +36,8 @@
             <div class="order-title">{{ o.recipe_title }}</div>
             <div class="order-meta">
               <span>{{ o.category }}</span>
-              <span>⏱{{ o.total_time }}分钟</span>
-              <span>¥{{ o.total_cost?.toFixed(1) }}</span>
+              <span v-if="o.total_time">⏱{{ o.total_time }}分钟</span>
+              <span v-if="o.total_cost">¥{{ Number(o.total_cost).toFixed(1) }}</span>
             </div>
             <div class="order-bottom">
               <span class="orderer">{{ o.orderer_name }} 点的</span>
@@ -138,7 +138,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useUserStore } from '../stores/user'
-import * as api from '../utils/api'
+import { request, fileUrl } from '../utils/request'
 
 const userStore = useUserStore()
 const recipes = ref([])
@@ -154,33 +154,67 @@ const showFamilyPicker = ref(false)
 const todayText = new Date().toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'short' })
 const statusMap = { pending: '待确认', confirmed: '已确认', cooking: '制作中', done: '已完成', rejected: '已拒绝' }
 
+function stringToColor(str) {
+  const colors = ['#FF6B6B', '#4ECDC4', '#FFD93D', '#6BCB77', '#4D96FF', '#FF8FAB', '#9B59B6', '#3498DB']
+  let hash = 0
+  for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash)
+  return colors[Math.abs(hash) % colors.length]
+}
+
 const isChef = computed(() => {
   if (!userStore.currentFamily) return false
-  return api.getUserRole(userStore.currentFamily.id, userStore.user.id) === 'chef'
+  return userStore.currentFamily.role === 'chef'
 })
 
-function loadRecipes() {
+async function loadRecipes() {
+  const fid = userStore.currentFamily?.id
+  if (!fid) { recipes.value = []; return }
   loading.value = true
   try {
-    const fid = userStore.currentFamily?.id
-    if (!fid) { recipes.value = []; return }
-    recipes.value = api.getRecipes(fid, null, cat.value)
+    const data = await request(`/api/recipes?family_id=${fid}&category=${encodeURIComponent(cat.value)}`)
+    recipes.value = (data.recipes || []).map(r => ({
+      ...r,
+      cover: r.cover ? fileUrl(r.cover) : null,
+      cover_color: stringToColor(r.title)
+    }))
   } catch (e) { console.error(e) } finally { loading.value = false }
 }
 
-function loadTodayOrders() {
+async function loadTodayOrders() {
   const fid = userStore.currentFamily?.id
   if (!fid) { todayOrders.value = []; return }
-  todayOrders.value = api.getTodayOrders(fid)
+  try {
+    const data = await request(`/api/orders?family_id=${fid}`)
+    const today = new Date().toISOString().slice(0, 10)
+    todayOrders.value = (data.orders || []).filter(o => o.meal_date === today).map(o => ({
+      ...o,
+      cover: o.cover ? fileUrl(o.cover) : null,
+      cover_color: stringToColor(o.recipe_title)
+    }))
+  } catch (e) { console.error(e) }
 }
 
-function loadAllFamilies() {
-  allFamilies.value = api.getMyFamilies(userStore.user.id)
+async function loadAllFamilies() {
+  try {
+    const data = await request('/api/families/mine')
+    allFamilies.value = data.families || []
+    if (allFamilies.value.length > 0 && !userStore.currentFamily) {
+      userStore.setFamily(allFamilies.value[0])
+    }
+  } catch (e) { console.error(e) }
 }
 
-function switchFamily(fid) {
+async function switchFamily(fid) {
   selectedFamilyId.value = fid
-  otherFamilyOrders.value = api.getTodayOrders(fid)
+  try {
+    const data = await request(`/api/orders?family_id=${fid}`)
+    const today = new Date().toISOString().slice(0, 10)
+    otherFamilyOrders.value = (data.orders || []).filter(o => o.meal_date === today).map(o => ({
+      ...o,
+      cover: o.cover ? fileUrl(o.cover) : null,
+      cover_color: stringToColor(o.recipe_title)
+    }))
+  } catch (e) { console.error(e) }
 }
 
 function selectFamily(f) {

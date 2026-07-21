@@ -40,19 +40,23 @@
 <script setup>
 import { ref } from 'vue'
 import { useUserStore } from '../stores/user'
-import * as api from '../utils/api'
+import { request, fileUrl } from '../utils/request'
 
 const userStore = useUserStore()
 const keyword = ref('')
 const recipes = ref([])
 const searched = ref(false)
 
-function search() {
+async function search() {
   if (!keyword.value.trim()) return
+  const fid = userStore.currentFamily?.id
+  if (!fid) return
   try {
-    const fid = userStore.currentFamily?.id
-    if (!fid) return
-    recipes.value = api.getRecipes(fid, keyword.value, null)
+    const data = await request(`/api/recipes?family_id=${fid}&keyword=${encodeURIComponent(keyword.value)}`)
+    recipes.value = (data.recipes || []).map(r => ({
+      ...r,
+      cover: r.cover ? fileUrl(r.cover) : null
+    }))
     searched.value = true
   } catch (e) { console.error(e) }
 }

@@ -52,7 +52,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useUserStore } from '../../stores/user'
-import * as api from '../../utils/api'
+import { request } from '../../utils/request'
 
 const route = useRoute()
 const userStore = useUserStore()
@@ -61,26 +61,31 @@ const members = ref([])
 
 const isCreator = computed(() => family.value?.creator_id === userStore.user?.id)
 
-function load() {
+async function load() {
   try {
-    const fid = parseInt(route.params.id)
-    members.value = api.getFamilyMembers(fid)
-    const myFamilies = api.getMyFamilies(userStore.user.id)
-    family.value = myFamilies.find(f => f.id === fid)
+    const fid = route.params.id
+    const famData = await request(`/api/families/${fid}`)
+    family.value = famData.family
+    const memData = await request(`/api/families/${fid}/members`)
+    members.value = memData.members || []
   } catch (e) { alert(e.message) }
 }
 
-function setChef(m) {
+async function setChef(m) {
   if (!confirm(`确定将 ${m.nickname} 设为主厨吗？`)) return
   try {
-    api.setChef(family.value.id, m.id, userStore.user.id)
-    load()
+    const data = await request(`/api/families/${family.value.id}`, { method: 'PUT', body: { head_chef_id: m.id } })
+    family.value = data.family
+    await load()
   } catch (e) { alert(e.message) }
 }
 
 async function removeMember(m) {
   if (!confirm(`确定移除 ${m.nickname} 吗？`)) return
-  alert('当前版本暂不支持移除成员')
+  try {
+    await request(`/api/families/${family.value.id}/members/${m.id}`, { method: 'DELETE' })
+    await load()
+  } catch (e) { alert(e.message) }
 }
 
 onMounted(load)

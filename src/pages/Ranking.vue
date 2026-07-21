@@ -77,7 +77,7 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue'
 import { useUserStore } from '../stores/user'
-import * as api from '../utils/api'
+import { request, fileUrl } from '../utils/request'
 
 const userStore = useUserStore()
 const tab = ref('recipes')
@@ -88,16 +88,19 @@ function rankClass(i) {
   return i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : ''
 }
 
-function load() {
+async function load() {
   const fid = userStore.currentFamily?.id
   if (!fid) return
   try {
     if (tab.value === 'recipes') {
-      const data = api.getRecipeRanking(fid)
-      recipes.value = data.recipes
+      const data = await request(`/api/rankings/recipes?family_id=${fid}`)
+      recipes.value = (data.recipes || []).map(r => ({
+        ...r,
+        cover: r.cover ? fileUrl(r.cover) : null
+      }))
     } else {
-      const data = api.getChefRanking(fid)
-      chefs.value = data.chefs
+      const data = await request(`/api/rankings/chefs?family_id=${fid}`)
+      chefs.value = data.chefs || []
     }
   } catch (e) {}
 }

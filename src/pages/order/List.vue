@@ -45,36 +45,38 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useUserStore } from '../../stores/user'
-import * as api from '../../utils/api'
+import { request, fileUrl } from '../../utils/request'
 
 const userStore = useUserStore()
 const orders = ref([])
 const loading = ref(false)
 const curStatus = ref('')
-const isChef = ref(false)
 const statuses = [
   { v: '', l: '全部' }, { v: 'pending', l: '待确认' }, { v: 'confirmed', l: '已确认' }, { v: 'cooking', l: '制作中' }, { v: 'done', l: '已完成' }
 ]
 const statusMap = { pending: '待确认', confirmed: '已确认', cooking: '制作中', done: '已完成', rejected: '已拒绝' }
 
-function load() {
+const isChef = computed(() => userStore.currentFamily?.role === 'chef')
+
+async function load() {
   if (!userStore.currentFamily) return
   loading.value = true
   try {
-    const data = api.getOrders(userStore.currentFamily.id, userStore.user.id)
-    let allOrders = data.orders
-    if (curStatus.value) allOrders = allOrders.filter(o => o.status === curStatus.value)
-    orders.value = allOrders
-    isChef.value = data.is_chef
+    const statusParam = curStatus.value || ''
+    const data = await request(`/api/orders?family_id=${userStore.currentFamily.id}${statusParam ? '&status=' + statusParam : ''}`)
+    orders.value = (data.orders || []).map(o => ({
+      ...o,
+      cover: o.cover ? fileUrl(o.cover) : null
+    }))
   } catch (e) {} finally { loading.value = false }
 }
 
-function updateStatus(o, status) {
+async function updateStatus(o, status) {
   try {
-    api.updateOrderStatus(o.id, status)
-    load()
+    await request(`/api/orders/${o.id}`, { method: 'PUT', body: { status } })
+    await load()
   } catch (e) { alert(e.message) }
 }
 

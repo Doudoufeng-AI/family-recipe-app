@@ -38,7 +38,7 @@
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '../../stores/user'
-import * as api from '../../utils/api'
+import { request } from '../../utils/request'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -50,8 +50,8 @@ async function onRegister() {
   if (!form.nickname || !form.username || !form.password) { error.value = '请填写完整信息'; return }
   loading.value = true; error.value = ''
   try {
-    const data = api.register(form.username, form.password, form.nickname)
-    userStore.setAuth('local_' + data.id, data)
+    const data = await request('/api/auth/register', { method: 'POST', body: { username: form.username, password: form.password, nickname: form.nickname } })
+    userStore.setAuth(data.token, data.user)
     router.push('/')
   } catch (e) {
     error.value = e.message

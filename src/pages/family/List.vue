@@ -51,7 +51,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '../../stores/user'
-import * as api from '../../utils/api'
+import { request } from '../../utils/request'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -59,10 +59,11 @@ const families = ref([])
 const loading = ref(false)
 const joinCode = ref('')
 
-function load() {
+async function load() {
   loading.value = true
   try {
-    families.value = api.getMyFamilies(userStore.user.id)
+    const data = await request('/api/families/mine')
+    families.value = data.families || []
     if (families.value.length > 0 && !userStore.currentFamily) {
       userStore.setFamily(families.value[0])
     }
@@ -83,14 +84,14 @@ function copyCode(code) {
   }
 }
 
-function joinFamily() {
+async function joinFamily() {
   if (!joinCode.value.trim()) { alert('请输入邀请码'); return }
   try {
-    const family = api.joinFamily(userStore.user.id, joinCode.value.toUpperCase())
-    userStore.setFamily(family)
+    const data = await request('/api/families/join', { method: 'POST', body: { invite_code: joinCode.value.toUpperCase() } })
+    userStore.setFamily(data.family)
     joinCode.value = ''
-    load()
-    router.push(`/family/${family.id}`)
+    await load()
+    router.push(`/family/${data.family.id}`)
   } catch (e) { alert(e.message) }
 }
 

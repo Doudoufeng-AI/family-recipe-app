@@ -169,7 +169,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '../../stores/user'
-import * as api from '../../utils/api'
+import { request, fileUrl } from '../../utils/request'
 
 const props = defineProps({ recipeId: { type: [String, Number], default: null } })
 const emit = defineEmits(['saved'])
@@ -186,62 +186,134 @@ const form = reactive({
   ingredients: [], steps: []
 })
 
+// 存储原始文件对象
+const files = reactive({
+  images: [],          // File[]
+  video: null,         // File
+  ingredientImage: null, // File
+  seasoningImage: null,  // File
+  stepImages: []        // File[]
+})
+
 const totalCost = computed(() => form.ingredients.reduce((s, i) => s + (parseFloat(i.cost) || 0), 0))
 const totalTime = computed(() => form.steps.reduce((s, st) => s + (parseInt(st.duration) || 0), 0))
 
 function ingList(type) { return form.ingredients.filter(x => x.type === type) }
-function onImages(e) { Array.from(e.target.files).forEach(f => form.images.push(URL.createObjectURL(f))) }
-function onVideo(e) { if (e.target.files[0]) form.video = URL.createObjectURL(e.target.files[0]) }
-function onGroupImg(e, type) { if (e.target.files[0]) form[type === 'ingredient' ? 'ingredientImage' : 'seasoningImage'] = URL.createObjectURL(e.target.files[0]) }
-function onStepImg(e, i) { if (e.target.files[0]) form.steps[i].image = URL.createObjectURL(e.target.files[0]) }
-function removeImage(i) { form.images.splice(i, 1) }
+
+function onImages(e) {
+  Array.from(e.target.files).forEach(f => {
+    form.images.push(URL.createObjectURL(f))
+    files.images.push(f)
+  })
+}
+function onVideo(e) {
+  if (e.target.files[0]) {
+    form.video = URL.createObjectURL(e.target.files[0])
+    files.video = e.target.files[0]
+  }
+}
+function onGroupImg(e, type) {
+  if (e.target.files[0]) {
+    const url = URL.createObjectURL(e.target.files[0])
+    const file = e.target.files[0]
+    if (type === 'ingredient') {
+      form.ingredientImage = url
+      files.ingredientImage = file
+    } else {
+      form.seasoningImage = url
+      files.seasoningImage = file
+    }
+  }
+}
+function onStepImg(e, i) {
+  if (e.target.files[0]) {
+    form.steps[i].image = URL.createObjectURL(e.target.files[0])
+    form.steps[i].imageFile = e.target.files[0]
+    files.stepImages[i] = e.target.files[0]
+  }
+}
+function removeImage(i) {
+  form.images.splice(i, 1)
+  files.images.splice(i, 1)
+}
 function addIng(type) { form.ingredients.push({ type, name: '', amount: '', unit: '', price: 0, cost: 0 }) }
 function removeIng(type, idx) {
   const list = form.ingredients.filter(x => x.type === type)
   const realIdx = form.ingredients.indexOf(list[idx])
   form.ingredients.splice(realIdx, 1)
 }
-function addStep() { form.steps.push({ description: '', duration: 0, image: null }) }
+function addStep() { form.steps.push({ description: '', duration: 0, image: null, imageFile: null }) }
 
-function loadRecipe() {
+async function loadRecipe() {
   if (!props.recipeId) return
   loadingData.value = true
   try {
-    const r = api.getRecipe(parseInt(props.recipeId))
+    const data = await request(`/api/recipes/${props.recipeId}`)
+    const r = data.recipe
     form.title = r.title; form.category = r.category; form.description = r.description
-    form.images = r.images || []
-    form.video = r.video || null
-    const ingImg = (r.ingredients || []).find(i => i.type === 'ingredient' && i.group_image)
-    if (ingImg) form.ingredientImage = ingImg.group_image
-    const seaImg = (r.ingredients || []).find(i => i.type === 'seasoning' && i.group_image)
-    if (seaImg) form.seasoningImage = seaImg.group_image
-    form.ingredients = (r.ingredients || []).map(i => ({ type: i.type, name: i.name, amount: i.amount, unit: i.unit, price: i.price, cost: i.cost, group_image: i.group_image || null }))
-    form.steps = (r.steps || []).map(s => ({ description: s.description, duration: s.duration, image: s.image || null }))
+    form.images = (data.images || []).map(img => fileUrl(img.image_path))
+    form.video = r.video_path ? fileUrl(r.video_path) : null
+    const ingImg = (data.ingredients || []).find(i => i.type === 'ingredient' && i.group_image_path)
+    if (ingImg) form.ingredientImage = fileUrl(ingImg.group_image_path)
+    const seaImg = (data.ingredients || []).find(i => i.type === 'seasoning' && i.group_image_path)
+    if (seaImg) form.seasoningImage = fileUrl(seaImg.group_image_path)
+    form.ingredients = (data.ingredients || []).map(i => ({
+      type: i.type, name: i.name, amount: i.amount, unit: i.unit,
+      price: i.price, cost: i.cost,
+      group_image_path: i.group_image_path || null
+    }))
+    form.steps = (data.steps || []).map(s => ({
+      description: s.description, duration: s.duration,
+      image: s.image_path ? fileUrl(s.image_path) : null,
+      image_path: s.image_path || null,
+      imageFile: null
+    }))
   } catch (e) { alert(e.message) } finally { loadingData.value = false }
 }
 
-function submit() {
+async function submit() {
   if (!form.title) { alert('请填写菜名'); return }
   if (!userStore.currentFamily) { alert('请先创建或加入一个家庭'); router.push('/family'); return }
   loading.value = true
   try {
-    const recipeData = {
-      title: form.title,
-      category: form.category,
-      description: form.description,
-      images: form.images,
-      video: form.video,
-      ingredients: form.ingredients.map(i => ({ ...i, cost: i.cost || 0, price: i.price || 0 })),
-      steps: form.steps.map(s => ({ description: s.description, duration: s.duration || 0, image: s.image || null }))
-    }
+    const fd = new FormData()
+    fd.append('family_id', userStore.currentFamily.id)
+    fd.append('title', form.title)
+    fd.append('category', form.category)
+    fd.append('description', form.description)
+    fd.append('ingredients', JSON.stringify(form.ingredients.map(i => ({
+      type: i.type, name: i.name, amount: i.amount, unit: i.unit,
+      price: i.price || 0, cost: i.cost || 0,
+      group_image_path: i.group_image_path || null
+    }))))
+    fd.append('steps', JSON.stringify(form.steps.map(s => ({
+      description: s.description, duration: s.duration || 0,
+      image_path: s.image_path || null
+    }))))
+
+    // 成品照片
+    files.images.forEach(f => fd.append('images', f))
+    // 视频
+    if (files.video) fd.append('video', files.video)
+    // 食材合照
+    if (files.ingredientImage) fd.append('ingredient_image', files.ingredientImage)
+    // 调料合照
+    if (files.seasoningImage) fd.append('seasoning_image', files.seasoningImage)
+    // 步骤图
+    form.steps.forEach((s, i) => {
+      if (s.imageFile) fd.append('step_images', s.imageFile)
+    })
+
     let data
     if (isEdit.value) {
-      data = api.updateRecipe(parseInt(props.recipeId), userStore.user.id, recipeData)
+      data = await request(`/api/recipes/${props.recipeId}`, { method: 'PUT', body: fd })
+      emit('saved', { id: parseInt(props.recipeId) })
+      router.push(`/recipe/${props.recipeId}`)
     } else {
-      data = api.createRecipe(userStore.user.id, userStore.currentFamily.id, recipeData)
+      data = await request('/api/recipes', { method: 'POST', body: fd })
+      emit('saved', data)
+      router.push(`/recipe/${data.id}`)
     }
-    emit('saved', data)
-    router.push(`/recipe/${data.id}`)
   } catch (e) { alert(e.message) } finally { loading.value = false }
 }
 

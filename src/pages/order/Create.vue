@@ -45,7 +45,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '../../stores/user'
-import * as api from '../../utils/api'
+import { request, fileUrl } from '../../utils/request'
 
 const route = useRoute()
 const router = useRouter()
@@ -55,19 +55,28 @@ const loading = ref(false)
 const loading2 = ref(false)
 const form = reactive({ recipe_id: route.query.recipe_id ? parseInt(route.query.recipe_id) : null, meal_date: '', note: '' })
 
-function loadRecipes() {
+async function loadRecipes() {
   if (!userStore.currentFamily) return
   loading.value = true
   try {
-    recipes.value = api.getRecipes(userStore.currentFamily.id, null, null)
+    const data = await request(`/api/recipes?family_id=${userStore.currentFamily.id}`)
+    recipes.value = (data.recipes || []).map(r => ({
+      ...r,
+      cover: r.cover ? fileUrl(r.cover) : null
+    }))
   } catch (e) {} finally { loading.value = false }
 }
 
-function submit() {
+async function submit() {
   if (!form.recipe_id) { alert('请选择菜品'); return }
   loading2.value = true
   try {
-    api.createOrder(userStore.user.id, userStore.currentFamily.id, form.recipe_id, form.meal_date, form.note)
+    await request('/api/orders', { method: 'POST', body: {
+      family_id: userStore.currentFamily.id,
+      recipe_id: form.recipe_id,
+      meal_date: form.meal_date,
+      note: form.note
+    } })
     router.push('/order')
   } catch (e) { alert(e.message) } finally { loading2.value = false }
 }
